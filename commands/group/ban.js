@@ -1,0 +1,2 @@
+const {requireAdmin,requireGroup,mentionsFrom,mention,ensureJson,saveJson}=require('../_utils');
+module.exports={name:'ban',category:'group',description:"Ban and remove a member.",async execute(ctx){await requireAdmin(ctx); const t=mentionsFrom(ctx); if(!t.length)return ctx.reply('Mention the member.'); const db=ensureJson('bans.json',{}); for(const id of t) db[id]=true; saveJson('bans.json',db); await ctx.sock.groupParticipantsUpdate(ctx.jid,t,'remove'); await ctx.reply('🚫 Banned: '+t.map(mention).join(', '));}};

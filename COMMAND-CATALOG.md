@@ -1,0 +1,127 @@
+# Prime Bot Command Catalog
+
+This build includes the original Prime Bot plugins, the existing `commands/` tree,
+and a new `core/Plugins/mega.js` pack containing 200+ additional self-contained commands.
+
+## Runtime layout
+
+- `core/Plugins/` is loaded first.
+- `commands/` is then loaded recursively for commands not already registered.
+- `core/Plugins/mega.js` provides the new large command pack.
+
+## Static command-name count: 114
+
+- `/8ball` — `core/Plugins/games.js`
+- `/about` — `core/Plugins/general.js`
+- `/add` — `core/Plugins/group_admin.js`
+- `/addsudo` — `core/Plugins/owner.js`
+- `/admincheck` — `core/Plugins/owner.js`
+- `/admins` — `core/Plugins/group.js`
+- `/ai` — `core/Plugins/ai.js`
+- `/alive` — `core/Plugins/general.js`
+- `/antibot` — `core/Plugins/protection.js`
+- `/antilink` — `core/Plugins/protection.js`
+- `/antispam` — `core/Plugins/protection.js`
+- `/antitag` — `core/Plugins/protection.js`
+- `/ask` — `commands/ai/ask.js`
+- `/balance` — `core/Plugins/casino.js`
+- `/ban` — `core/Plugins/group_admin.js`
+- `/blackjack` — `core/Plugins/casino.js`
+- `/botinfo` — `core/Plugins/general.js`
+- `/calc` — `core/Plugins/utilities.js`
+- `/caption` — `core/Plugins/media.js`
+- `/casino` — `commands/casino/casino.js`
+- `/chat` — `commands/ai/chat.js`
+- `/coin` — `core/Plugins/games.js`
+- `/coinflip` — `commands/games/coinflip.js`
+- `/country` — `core/Plugins/utilities.js`
+- `/daily` — `core/Plugins/casino.js`
+- `/define` — `core/Plugins/utilities.js`
+- `/delsudo` — `core/Plugins/owner.js`
+- `/demote` — `core/Plugins/group_admin.js`
+- `/dice` — `core/Plugins/games.js`
+- `/enhance` — `core/Plugins/media.js`
+- `/facebook` — `commands/downloader/facebook.js`
+- `/ff` — `core/Plugins/freefire.js`
+- `/ffdevice` — `commands/freefire/ffdevice.js`
+- `/ffdpi` — `commands/freefire/ffdpi.js`
+- `/ffheadshot` — `commands/freefire/ffheadshot.js`
+- `/ffhud` — `commands/freefire/ffhud.js`
+- `/ffsens` — `core/Plugins/freefire.js`
+- `/ffsettings` — `commands/freefire/ffsettings.js`
+- `/gamble` — `commands/casino/gamble.js`
+- `/games` — `core/Plugins/games.js`
+- `/goodbye` — `core/Plugins/protection.js`
+- `/groupinfo` — `core/Plugins/group.js`
+- `/guess` — `commands/games/guess.js`
+- `/hangman` — `commands/games/hangman.js`
+- `/hello` — `commands/general/hello.js`
+- `/help` — `core/Plugins/general.js`
+- `/hidetag` — `core/Plugins/group.js`
+- `/imagine` — `core/Plugins/ai.js`
+- `/instagram` — `commands/downloader/instagram.js`
+- `/kick` — `core/Plugins/group_admin.js`
+- `/leaderboard` — `commands/casino/leaderboard.js`
+- `/link` — `core/Plugins/group.js`
+- `/listsudo` — `core/Plugins/owner.js`
+- `/mathgame` — `commands/games/mathgame.js`
+- `/mediafire` — `commands/downloader/mediafire.js`
+- `/menu` — `core/Plugins/menu.js`
+- `/mode` — `core/Plugins/owner.js`
+- `/mute` — `core/Plugins/group_admin.js`
+- `/mutechat` — `core/Plugins/group_admin.js`
+- `/owner` — `core/Plugins/owner.js`
+- `/ping` — `core/Plugins/general.js`
+- `/play` — `core/Plugins/downloader.js`
+- `/private` — `core/Plugins/private.js`
+- `/promote` — `core/Plugins/group_admin.js`
+- `/protection` — `core/Plugins/protection.js`
+- `/public` — `core/Plugins/private.js`
+- `/qr` — `core/Plugins/utilities.js`
+- `/quiz` — `core/Plugins/games.js`
+- `/reload` — `core/Plugins/private.js`
+- `/removebg` — `core/Plugins/media.js`
+- `/repo` — `core/Plugins/general.js`
+- `/revoke` — `core/Plugins/group.js`
+- `/roulette` — `core/Plugins/casino.js`
+- `/rps` — `core/Plugins/games.js`
+- `/runtime` — `core/Plugins/general.js`
+- `/scramble` — `commands/games/scramble.js`
+- `/setdesc` — `core/Plugins/group.js`
+- `/setgoodbye` — `core/Plugins/protection.js`
+- `/setname` — `core/Plugins/group.js`
+- `/setwelcome` — `core/Plugins/protection.js`
+- `/shortlink` — `core/Plugins/utilities.js`
+- `/slots` — `core/Plugins/games.js`
+- `/song` — `core/Plugins/downloader.js`
+- `/speed` — `core/Plugins/general.js`
+- `/ss` — `core/Plugins/media.js`
+- `/stats` — `core/Plugins/private.js`
+- `/sticker` — `core/Plugins/media.js`
+- `/summarize` — `core/Plugins/ai.js`
+- `/tagall` — `core/Plugins/group.js`
+- `/tictactoe` — `commands/games/tictactoe.js`
+- `/tiktok` — `commands/downloader/tiktok.js`
+- `/time` — `core/Plugins/utilities.js`
+- `/togif` — `core/Plugins/converter.js`
+- `/toimage` — `core/Plugins/converter.js`
+- `/toimg` — `core/Plugins/media.js`
+- `/tosticker` — `core/Plugins/converter.js`
+- `/tourl` — `core/Plugins/media.js`
+- `/tovideo` — `core/Plugins/converter.js`
+- `/translate` — `core/Plugins/utilities.js`
+- `/trivia` — `commands/games/trivia.js`
+- `/twitter` — `commands/downloader/twitter.js`
+- `/unban` — `core/Plugins/group_admin.js`
+- `/unmute` — `core/Plugins/group_admin.js`
+- `/unmutechat` — `core/Plugins/group_admin.js`
+- `/unwarn` — `core/Plugins/group_admin.js`
+- `/vv` — `core/Plugins/vv.js`
+- `/warn` — `core/Plugins/group_admin.js`
+- `/warnings` — `core/Plugins/group_admin.js`
+- `/weather` — `core/Plugins/utilities.js`
+- `/welcome` — `core/Plugins/protection.js`
+- `/wiki` — `core/Plugins/utilities.js`
+- `/ytmp3` — `core/Plugins/downloader.js`
+- `/ytmp4` — `core/Plugins/downloader.js`
+- `/ytsearch` — `core/Plugins/downloader.js`

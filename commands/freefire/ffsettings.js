@@ -1,0 +1,1 @@
+module.exports={name:'ffsettings',category:'freefire',description:'Show Free Fire settings guide.',async execute(ctx){await ctx.reply('🎮 Free Fire starter setup:\n/ffsens\n/ffdpi\n/ffhud\n/ffheadshot\n/ffdevice <phone>\n\nUse these as starting points; every device responds differently.');}};

@@ -1,0 +1,38 @@
+{
+  "users": {
+    "1234567890": {
+      "coins": 26132,
+      "bank": 0,
+      "xp": 80,
+      "level": 2,
+      "wins": 0,
+      "losses": 0,
+      "streak": 0,
+      "inventory": {},
+      "last": {
+        "claimx": 1787925324068,
+        "dailybonus": 1787925324069,
+        "weeklybonus": 1787925324071,
+        "monthlybonus": 1787925324071,
+        "workx": 1787925324072,
+        "hustlex": 1787925324073,
+        "begx": 1787925324073,
+        "fishx": 1787925324073,
+        "huntx": 1787925324074,
+        "minex": 1787925324075,
+        "farmx": 1787925324077,
+        "cookx": 1787925324077,
+        "crimex": 1787925324078,
+        "jackpot": 1787925324086
+      },
+      "created": 1787925324065
+    }
+  },
+  "groups": {
+    "123-abc@g.us": {}
+  },
+  "games": {},
+  "stats": {
+    "jackpot": 10048
+  }
+}

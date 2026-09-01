@@ -1,0 +1,2 @@
+const {randomInt,ensureJson,saveJson}=require('../_utils');
+module.exports={name:'rps',category:'games',description:'rps game.',async execute(ctx){const c=['rock','paper','scissors'][randomInt(0,2)]; const u=(ctx.args?.[0]||'').toLowerCase(); if(!['rock','paper','scissors'].includes(u))return ctx.reply('Usage: /rps rock|paper|scissors'); const win=(u==='rock'&&c==='scissors')||(u==='paper'&&c==='rock')||(u==='scissors'&&c==='paper'); await ctx.reply(`You: ${u}\nBot: ${c}\n${u===c?'Draw!':win?'You win! 🏆':'You lose!'}`);}};

@@ -1,0 +1,2 @@
+const {requireAdmin,requireGroup,mentionsFrom,mention,ensureJson,saveJson}=require('../_utils');
+module.exports={name:'warn',category:'group',description:"Warn a member.",async execute(ctx){await requireAdmin(ctx); const t=mentionsFrom(ctx); if(!t.length)return ctx.reply('Mention the member.'); const db=ensureJson('warnings.json',{}); for(const id of t) db[id]=(db[id]||0)+1; saveJson('warnings.json',db); await ctx.reply(t.map(id=>`${mention(id)}: ${db[id]} warning(s)`).join('\n'));}};

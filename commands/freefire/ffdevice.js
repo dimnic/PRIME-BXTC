@@ -1,0 +1,1 @@
+const {argsText}=require('../_utils'); module.exports={name:'ffdevice',category:'freefire',description:'Device-specific sensitivity guidance.',async execute(ctx){const d=argsText(ctx.args)||'your device';await ctx.reply(`📱 Device: ${d}\nStart with /ffsens ${d}\nThen tune values in small 2-3 point steps.`);}};

@@ -1,0 +1,1 @@
+module.exports={name:'ffheadshot',category:'freefire',description:'Headshot sensitivity tips.',async execute(ctx){await ctx.reply('🎯 Headshot setup: keep General and Red Dot high, use short upward drags, and practice at close/medium range.');}};

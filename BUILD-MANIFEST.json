@@ -1,0 +1,9 @@
+{
+  "base_project": "PRIME-Bot-2.1.0 (2).zip",
+  "preserved_original_source_files": 67,
+  "new_command_modules": 95,
+  "new_command_loader": "core/command-loader.js",
+  "new_sock": "core/sock.js",
+  "auth_credentials_included": false,
+  "node_modules_included": false
+}

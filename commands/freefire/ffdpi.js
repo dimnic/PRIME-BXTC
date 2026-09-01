@@ -1,0 +1,1 @@
+module.exports={name:'ffdpi',category:'freefire',description:'Free Fire DPI starting point.',async execute(ctx){await ctx.reply('🎮 Free Fire DPI: start around 400-600 on Android if your device supports it, then tune gradually.');}};

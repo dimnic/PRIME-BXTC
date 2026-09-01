@@ -1,0 +1,2 @@
+const {requireAdmin,requireGroup,mentionsFrom,mention,ensureJson,saveJson}=require('../_utils');
+module.exports={name:'unban',category:'group',description:"Remove a ban record.",async execute(ctx){await requireAdmin(ctx); const t=mentionsFrom(ctx); if(!t.length)return ctx.reply('Mention the member.'); const db=ensureJson('bans.json',{}); for(const id of t) delete db[id]; saveJson('bans.json',db); await ctx.reply('✅ Ban record removed.');}};

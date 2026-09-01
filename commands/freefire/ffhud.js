@@ -1,0 +1,1 @@
+module.exports={name:'ffhud',category:'freefire',description:'Free Fire HUD tips.',async execute(ctx){await ctx.reply('🎮 HUD tip: keep fire button around 45-55% and place it where your thumb naturally rests.');}};

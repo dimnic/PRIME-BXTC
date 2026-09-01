@@ -1,0 +1,2 @@
+const {requireAdmin,requireGroup,mentionsFrom,mention,ensureJson,saveJson}=require('../_utils');
+module.exports={name:'unwarn',category:'group',description:"Reduce a member warning count.",async execute(ctx){await requireAdmin(ctx); const t=mentionsFrom(ctx); if(!t.length)return ctx.reply('Mention the member.'); const db=ensureJson('warnings.json',{}); for(const id of t) db[id]=Math.max(0,(db[id]||0)-1); saveJson('warnings.json',db); await ctx.reply('⚠️ Warning reduced.');}};
