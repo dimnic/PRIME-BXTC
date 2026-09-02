@@ -1,5 +1,5 @@
 <<<<<<< HEAD
-# 💎 Prime Bot 2.1.0
+# 💎 prime bot 1.0
 
 This is an expanded version of the supplied Prime Bot project. The original `cmds/`, `core/`, config, and package files are preserved. A separate `commands/` system has been added so new commands are isolated one file per command.
 
