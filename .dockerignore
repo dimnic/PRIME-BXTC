@@ -1,0 +1,11 @@
+node_modules
+.git
+.gitignore
+.env
+core/auth_info
+core/session
+*.log
+*.mp3
+*.mp4
+*.webm
+qr.png

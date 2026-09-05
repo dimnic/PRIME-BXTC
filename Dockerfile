@@ -2,23 +2,33 @@ FROM node:22-bookworm
 
 WORKDIR /app
 
-# Install FFmpeg and basic media libraries
+# Install system media tools
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ffmpeg \
+        yt-dlp \
+        python3 \
+        python3-pip \
+        ca-certificates \
+        curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy package files first for better Docker caching
+# Verify required tools
+RUN ffmpeg -version
+RUN yt-dlp --version
+
+# Copy package files first for Docker caching
 COPY package*.json ./
 
-# Install dependencies
+# Install Node.js dependencies
 RUN npm install --legacy-peer-deps
 
-# Copy the rest of Crystal Bot
+# Copy bot source
 COPY . .
 
-# Verify FFmpeg is available
+# Final verification
 RUN ffmpeg -version
+RUN yt-dlp --version
 
-# Start prime Bot
+# Start PRIME Bot
 CMD ["npm", "start"]
