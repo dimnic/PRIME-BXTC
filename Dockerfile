@@ -2,33 +2,30 @@ FROM node:22-bookworm
 
 WORKDIR /app
 
-# Install system media tools
+# Install FFmpeg, Python and yt-dlp
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ffmpeg \
-        yt-dlp \
         python3 \
-        python3-pip \
+        python3-venv \
         ca-certificates \
         curl \
+    && python3 -m venv /opt/yt-dlp \
+    && /opt/yt-dlp/bin/pip install --no-cache-dir --upgrade pip yt-dlp \
+    && ln -sf /opt/yt-dlp/bin/yt-dlp /usr/local/bin/yt-dlp \
     && rm -rf /var/lib/apt/lists/*
 
-# Verify required tools
-RUN ffmpeg -version
-RUN yt-dlp --version
+# Check that everything installed correctly
+RUN ffmpeg -version >/dev/null \
+    && yt-dlp --version \
+    && python3 --version
 
-# Copy package files first for Docker caching
+# Install Node dependencies
 COPY package*.json ./
-
-# Install Node.js dependencies
 RUN npm install --legacy-peer-deps
 
-# Copy bot source
+# Copy bot files
 COPY . .
 
-# Final verification
-RUN ffmpeg -version
-RUN yt-dlp --version
-
-# Start PRIME Bot
+# Start bot
 CMD ["npm", "start"]

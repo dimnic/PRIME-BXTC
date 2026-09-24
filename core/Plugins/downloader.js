@@ -65,6 +65,10 @@ function getPythonCommand() {
         : 'python3';
 }
 
+function getYtDlpCommand() {
+    return process.env.YTDLP_PATH || 'yt-dlp';
+}
+
 
 /* ============================================================================
    YT-DLP COMPATIBILITY

@@ -5,7 +5,7 @@ const path = require('path');
 
 const MENU_IMAGE_CANDIDATES = [
     path.join(__dirname, '..', 'assets', 'menu.jpg'),
-    path.join(__dirname, '..', 'assets', 'toji 2.jpg'),
+    path.join(__dirname, '..', 'assets', 'aizen.jpg'),
     path.join(__dirname, '..', 'assets', 'toji.jpg'),
     path.join(__dirname, '..', 'assets', 'banner.jpg'),
     path.join(__dirname, '..', 'assets', 'bot.jpg')
@@ -116,7 +116,7 @@ function buildMenu() {
 
     const lines = [
         '╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮',
-        '┃       👑 *PRIME BOT*       ┃',
+        '┃       👑 *AIZEN*       ┃',
         '┃          v2.1.0            ┃',
         '╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯',
         '',
