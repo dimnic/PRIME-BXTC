@@ -725,6 +725,48 @@
       "donated": 0,
       "received": 0,
       "created": 1790242535190
+    },
+    "27751597880": {
+      "coins": 1000,
+      "bank": 0,
+      "xp": 0,
+      "level": 1,
+      "wins": 0,
+      "losses": 0,
+      "streak": 0,
+      "inventory": {},
+      "last": {},
+      "profile": {
+        "created": true,
+        "name": "Boogeyman",
+        "bio": "",
+        "gender": "",
+        "age": "",
+        "country": "",
+        "city": "",
+        "maritalStatus": "single",
+        "birthday": "",
+        "website": "",
+        "pronouns": "",
+        "pictureUrl": "",
+        "createdAt": 1790276261379,
+        "updatedAt": 1790276883096
+      },
+      "company": {
+        "created": false,
+        "name": "",
+        "industry": "",
+        "level": 1,
+        "hourlyIncome": 250,
+        "lastClaim": 0,
+        "totalEarned": 0,
+        "totalUpgrades": 0,
+        "createdAt": null,
+        "updatedAt": null
+      },
+      "donated": 0,
+      "received": 0,
+      "created": 1790275396730
     }
   },
   "groups": {},

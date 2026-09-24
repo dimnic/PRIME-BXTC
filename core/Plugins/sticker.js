@@ -82,10 +82,10 @@ module.exports = {
                             imageBuffer,
                             {
                                 pack:
-                                    'PRIME BOT',
+                                    '',
 
                                 author:
-                                    'PRIME BOT',
+                                    '',
 
                                 type:
                                     StickerTypes.FULL,
