@@ -1,4 +1,3 @@
-
 'use strict';
 
 const fs = require('fs');
@@ -6,364 +5,340 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
+const { Sticker, StickerTypes } = require('wa-sticker-formatter');
+
+/* =========================================================
+   DIRECTORIES
+========================================================= */
 
 const TEMP_DIR = path.join(
     os.tmpdir(),
     'PRIME-bot-media'
 );
 
+const DATA_DIR = path.join(
+    __dirname,
+    '..',
+    'data'
+);
+
+const STICKER_DATABASE = path.join(
+    DATA_DIR,
+    'user-stickers.json'
+);
+
 if (!fs.existsSync(TEMP_DIR)) {
     fs.mkdirSync(TEMP_DIR, { recursive: true });
 }
 
-/* ============================================================
-   TEMP FILE HELPERS
-============================================================ */
+if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+}
 
-function makeTempFile(extension) {
-    const id = crypto
-        .randomBytes(10)
-        .toString('hex');
+/* =========================================================
+   GENERAL HELPERS
+========================================================= */
 
+function randomName(extension = 'bin') {
     return path.join(
         TEMP_DIR,
-        `${Date.now()}-${id}.${extension}`
+        `${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${extension}`
     );
 }
 
-function cleanup(...files) {
-    for (const file of files) {
-        try {
-            if (file && fs.existsSync(file)) {
-                fs.unlinkSync(file);
-            }
-        } catch (_) {}
+function cleanup(file) {
+    try {
+        if (file && fs.existsSync(file)) {
+            fs.unlinkSync(file);
+        }
+    } catch {}
+}
+
+function getChatId(ctx) {
+    return (
+        ctx.jid ||
+        ctx.chat ||
+        ctx.from ||
+        ctx.remoteJid
+    );
+}
+
+function getUserId(ctx) {
+    return (
+        ctx.sender ||
+        ctx.user ||
+        ctx.participant ||
+        ctx.senderJid ||
+        ctx.from ||
+        ctx.jid
+    );
+}
+
+function getArgsText(ctx) {
+    if (typeof ctx.argsText === 'string') {
+        return ctx.argsText.trim();
+    }
+
+    if (Array.isArray(ctx.args)) {
+        return ctx.args.join(' ').trim();
+    }
+
+    return '';
+}
+
+function getQuotedMessage(ctx) {
+    return (
+        ctx.quoted ||
+        ctx.quotedMessage ||
+        ctx.message?.extendedTextMessage?.contextInfo?.quotedMessage ||
+        null
+    );
+}
+
+function hasMedia(message) {
+    if (!message) return false;
+
+    return Boolean(
+        message.imageMessage ||
+        message.videoMessage ||
+        message.stickerMessage ||
+        message.audioMessage
+    );
+}
+
+async function downloadMedia(ctx, message) {
+    if (typeof ctx.downloadMedia === 'function') {
+        return await ctx.downloadMedia(message);
+    }
+
+    if (typeof ctx.download === 'function') {
+        return await ctx.download(message);
+    }
+
+    throw new Error(
+        'downloadMedia() is not available in your bot context.'
+    );
+}
+
+/* =========================================================
+   STICKER DATABASE
+========================================================= */
+
+function loadStickerDatabase() {
+    try {
+        if (!fs.existsSync(STICKER_DATABASE)) {
+            fs.writeFileSync(
+                STICKER_DATABASE,
+                JSON.stringify({}, null, 2)
+            );
+
+            return {};
+        }
+
+        return JSON.parse(
+            fs.readFileSync(
+                STICKER_DATABASE,
+                'utf8'
+            )
+        );
+    } catch (error) {
+        console.error(
+            'STICKER DATABASE ERROR:',
+            error
+        );
+
+        return {};
     }
 }
 
-/* ============================================================
-   FFMPEG
-============================================================ */
-
-function runFFmpeg(args) {
-    return new Promise((resolve, reject) => {
-        const ffmpeg = spawn(
-            'ffmpeg',
-            [
-                '-hide_banner',
-                '-loglevel',
-                'error',
-                '-y',
-                ...args
-            ],
-            {
-                windowsHide: true
-            }
-        );
-
-        let stderr = '';
-
-        ffmpeg.stderr.on(
-            'data',
-            data => {
-                stderr += data.toString();
-            }
-        );
-
-        ffmpeg.on(
-            'error',
-            error => {
-                reject(
-                    new Error(
-                        `FFmpeg could not start: ${error.message}`
-                    )
-                );
-            }
-        );
-
-        ffmpeg.on(
-            'close',
-            code => {
-                if (code === 0) {
-                    resolve();
-                    return;
-                }
-
-                reject(
-                    new Error(
-                        stderr.trim() ||
-                        `FFmpeg exited with code ${code}`
-                    )
-                );
-            }
-        );
-    });
+function saveStickerDatabase(database) {
+    fs.writeFileSync(
+        STICKER_DATABASE,
+        JSON.stringify(
+            database,
+            null,
+            2
+        )
+    );
 }
 
-/* ============================================================
+/* =========================================================
+   STICKER CREATOR
+========================================================= */
+
+async function createSticker(
+    buffer,
+    title = 'PRIME'
+) {
+    const sticker = new Sticker(
+        buffer,
+        {
+            pack: title,
+            author: 'PRIME',
+            type: StickerTypes.FULL,
+            quality: 100
+        }
+    );
+
+    return await sticker.build();
+}
+
+/* =========================================================
+   FFMPEG
+========================================================= */
+
+function runFFmpeg(args) {
+    return new Promise(
+        (resolve, reject) => {
+
+            const process = spawn(
+                'ffmpeg',
+                args,
+                {
+                    windowsHide: true
+                }
+            );
+
+            let stderr = '';
+
+            process.stderr.on(
+                'data',
+                data => {
+                    stderr += data.toString();
+                }
+            );
+
+            process.on(
+                'error',
+                reject
+            );
+
+            process.on(
+                'close',
+                code => {
+
+                    if (code === 0) {
+                        resolve();
+                    } else {
+                        reject(
+                            new Error(
+                                stderr ||
+                                `FFmpeg exited with code ${code}`
+                            )
+                        );
+                    }
+                }
+            );
+        }
+    );
+}
+
+/* =========================================================
    MEDIA DETECTION
-============================================================ */
+========================================================= */
 
 function detectMedia(message) {
-    const content =
-        message?.message;
 
-    if (!content) {
+    if (!message) {
         return null;
     }
 
-    if (content.imageMessage) {
-        return {
-            type: 'image',
-            message: content.imageMessage,
-            extension: 'jpg'
-        };
+    if (message.imageMessage) {
+        return 'image';
     }
 
-    if (content.videoMessage) {
-        return {
-            type: 'video',
-            message: content.videoMessage,
-            extension: 'mp4'
-        };
+    if (message.videoMessage) {
+        return 'video';
     }
 
-    if (content.stickerMessage) {
-        return {
-            type: 'sticker',
-            message: content.stickerMessage,
-            extension: 'webp'
-        };
+    if (message.stickerMessage) {
+        return 'sticker';
+    }
+
+    if (message.audioMessage) {
+        return 'audio';
     }
 
     return null;
 }
 
-/* ============================================================
-   QUOTED MESSAGE
-============================================================ */
-
-function getQuotedWAMessage(message) {
-    const contextInfo =
-        message?.message?.extendedTextMessage?.contextInfo ||
-        message?.message?.imageMessage?.contextInfo ||
-        message?.message?.videoMessage?.contextInfo ||
-        message?.message?.documentMessage?.contextInfo ||
-        message?.message?.stickerMessage?.contextInfo ||
-        {};
-
-    const quotedMessage =
-        contextInfo?.quotedMessage;
-
-    if (!quotedMessage) {
-        return null;
-    }
-
-    return {
-        key: {
-            remoteJid:
-                message?.key?.remoteJid,
-
-            id:
-                contextInfo?.stanzaId,
-
-            participant:
-                contextInfo?.participant
-        },
-
-        message: quotedMessage
-    };
-}
-
-/* ============================================================
-   ENHANCE OPTIONS
-============================================================ */
-
-function parseEnhanceOptions(text) {
-    const input =
-        String(text || '')
-            .trim()
-            .toLowerCase();
-
-    let resolution = '2k';
-    let fps = null;
-
-    if (/\b4k\b/.test(input)) {
-        resolution = '4k';
-    }
-
-    if (/\b2k\b/.test(input)) {
-        resolution = '2k';
-    }
-
-    if (
-        /\b120\s*fps\b/.test(input) ||
-        /\b120\b/.test(input)
-    ) {
-        fps = 120;
-    } else if (
-        /\b60\s*fps\b/.test(input) ||
-        /\b60\b/.test(input)
-    ) {
-        fps = 60;
-    }
-
-    return {
-        resolution,
-        fps
-    };
-}
-
-/* ============================================================
+/* =========================================================
    RESOLUTION
-============================================================ */
+========================================================= */
 
-function getResolution(resolution) {
-    if (resolution === '4k') {
+function getResolution(
+    message,
+    fallbackWidth = 720,
+    fallbackHeight = 720
+) {
+
+    if (!message) {
         return {
-            width: 3840,
-            height: 2160
+            width: fallbackWidth,
+            height: fallbackHeight
         };
     }
 
+    const media =
+        message.imageMessage ||
+        message.videoMessage ||
+        message.stickerMessage;
+
     return {
-        width: 2560,
-        height: 1440
+        width:
+            media?.width ||
+            fallbackWidth,
+
+        height:
+            media?.height ||
+            fallbackHeight
     };
 }
 
-/* ============================================================
-   SCALE
-============================================================ */
-
-function makeVideoScaleFilter(
-    width,
-    height
-) {
-    return (
-        `scale=${width}:${height}:` +
-        `force_original_aspect_ratio=decrease,` +
-        `pad=${width}:${height}:` +
-        `(ow-iw)/2:(oh-ih)/2:color=black`
-    );
-}
-
-/* ============================================================
+/* =========================================================
    IMAGE ENHANCEMENT
-============================================================ */
+========================================================= */
 
 async function enhanceImage(
     input,
-    output,
-    resolution
+    output
 ) {
-    const {
-        width,
-        height
-    } = getResolution(
-        resolution
-    );
-
-    const scale =
-        makeVideoScaleFilter(
-            width,
-            height
-        );
 
     await runFFmpeg([
+        '-y',
+
         '-i',
         input,
 
         '-vf',
-        [
-            scale,
-
-            /*
-             * Mild denoise
-             */
-            'hqdn3d=1.0:1.0:4:4',
-
-            /*
-             * Sharpen
-             */
-            'unsharp=5:5:0.9:5:5:0.0'
-        ].join(','),
-
-        '-frames:v',
-        '1',
+        'scale=iw*2:ih*2:flags=lanczos,unsharp=5:5:1.0:5:5:0.0',
 
         '-q:v',
         '2',
 
         output
     ]);
+
+    return output;
 }
 
-/* ============================================================
+/* =========================================================
    VIDEO ENHANCEMENT
-============================================================ */
+========================================================= */
 
 async function enhanceVideo(
     input,
-    output,
-    resolution,
-    fps
+    output
 ) {
-    const {
-        width,
-        height
-    } = getResolution(
-        resolution
-    );
-
-    const filters = [
-        makeVideoScaleFilter(
-            width,
-            height
-        ),
-
-        /*
-         * Mild denoise
-         */
-        'hqdn3d=1.0:1.0:4:4',
-
-        /*
-         * Sharpen/detail
-         */
-        'unsharp=5:5:0.8:5:5:0.0'
-    ];
-
-    /*
-     * Frame interpolation.
-     *
-     * This creates intermediate frames.
-     *
-     * 60 FPS:
-     * good balance between quality and CPU.
-     *
-     * 120 FPS:
-     * considerably heavier processing.
-     */
-    if (
-        fps === 60 ||
-        fps === 120
-    ) {
-        filters.push(
-            `minterpolate=` +
-            `fps=${fps}:` +
-            `mi_mode=mci:` +
-            `mc_mode=aobmc:` +
-            `me_mode=bidir:` +
-            `vsbmc=1`
-        );
-    }
 
     await runFFmpeg([
+        '-y',
+
         '-i',
         input,
 
         '-vf',
-        filters.join(','),
+        'scale=iw*2:ih*2:flags=lanczos,unsharp=5:5:1.0:5:5:0.0',
 
         '-c:v',
         'libx264',
@@ -372,391 +347,1045 @@ async function enhanceVideo(
         'medium',
 
         '-crf',
-        '18',
-
-        '-pix_fmt',
-        'yuv420p',
+        '20',
 
         '-c:a',
         'aac',
 
         '-b:a',
-        '192k',
-
-        '-movflags',
-        '+faststart',
+        '128k',
 
         output
     ]);
+
+    return output;
 }
 
-/* ============================================================
-   PLUGINS
-============================================================ */
+/* =========================================================
+   TO IMAGE
+========================================================= */
 
-module.exports = [
+const toimg = {
 
-    /* ========================================================
-       STICKER
-    ======================================================== */
+    name: 'toimg',
 
-   
+    aliases: [
+        'toimage'
+    ],
 
-    /* ========================================================
-       TO IMAGE
-    ======================================================== */
+    category: 'media',
 
-    {
-        name: 'toimg',
-        description: 'Convert media to image',
-        category: 'MEDIA',
+    description:
+        'Convert a sticker to an image.',
 
-        async execute({ reply }) {
-            await reply(
-                '🖼️ Reply to supported media with /toimg.'
-            );
-        }
-    },
+    async execute(ctx) {
 
-    /* ========================================================
-       TO VIDEO
-    ======================================================== */
+        let input = null;
+        let output = null;
 
-    {
-        name: 'tovideo',
-        description: 'Convert media to video',
-        category: 'MEDIA',
+        try {
 
-        async execute({ reply }) {
-            await reply(
-                '🎥 Reply to supported media with /tovideo.'
-            );
-        }
-    },
+            const quoted =
+                getQuotedMessage(ctx);
 
-    /* ========================================================
-       URL
-    ======================================================== */
+            if (!quoted?.stickerMessage) {
 
-    {
-        name: 'tourl',
-        alias: ['url'],
-        description: 'Upload media and return URL',
-        category: 'MEDIA',
-
-        async execute({ reply }) {
-            await reply(
-                '🔗 Reply to an image/video/file with /tourl.\n\n' +
-                'An upload provider must be configured for public URLs.'
-            );
-        }
-    },
-
-    /* ========================================================
-       SCREENSHOT
-    ======================================================== */
-
-    {
-        name: 'ss',
-        alias: ['screenshot'],
-        description: 'Take website screenshot',
-        category: 'MEDIA',
-
-        async execute({ reply, text }) {
-            if (!text) {
-                return reply(
-                    '📸 Usage: /ss https://example.com'
+                return ctx.reply(
+                    '❌ Reply to a sticker with `/toimg`.'
                 );
             }
 
-            await reply(
-                `📸 Screenshot requested:\n${text}\n\n` +
-                'Screenshot API is not configured yet.'
-            );
-        }
-    },
-
-    /* ========================================================
-       REMOVE BG
-    ======================================================== */
-
-    {
-        name: 'removebg',
-        description: 'Remove image background',
-        category: 'MEDIA',
-
-        async execute({ reply }) {
-            await reply(
-                '🪄 Reply to an image with /removebg.\n\n' +
-                'A background-removal API is required for processing.'
-            );
-        }
-    },
-
-    /* ========================================================
-       ENHANCE
-    ======================================================== */
-
-    {
-        name: 'enhance',
-        alias: [
-            'upscale',
-            'enh'
-        ],
-        description:
-            'Enhance and upscale image or video',
-        category: 'MEDIA',
-
-        async execute(context) {
-
-            const {
-                reply,
-                text,
-                message,
-                sendMedia
-            } = context;
-
-            const options =
-                parseEnhanceOptions(text);
-
-            let targetMessage =
-                message;
-
-            /*
-             * If /enhance is used as a reply,
-             * use the quoted media.
-             */
-            const quoted =
-                getQuotedWAMessage(
-                    message
+            const buffer =
+                await downloadMedia(
+                    ctx,
+                    quoted
                 );
 
-            if (quoted) {
-                targetMessage =
-                    quoted;
+            if (!buffer) {
+                return ctx.reply(
+                    '❌ Could not download the sticker.'
+                );
+            }
+
+            input =
+                randomName('webp');
+
+            output =
+                randomName('png');
+
+            fs.writeFileSync(
+                input,
+                buffer
+            );
+
+            await runFFmpeg([
+                '-y',
+
+                '-i',
+                input,
+
+                '-frames:v',
+                '1',
+
+                output
+            ]);
+
+            const image =
+                fs.readFileSync(output);
+
+            await ctx.sock.sendMessage(
+                getChatId(ctx),
+                {
+                    image,
+                    caption:
+                        '🖼️ Converted by PRIME'
+                },
+                {
+                    quoted: ctx.message
+                }
+            );
+
+        } catch (error) {
+
+            console.error(
+                'TOIMG ERROR:',
+                error
+            );
+
+            await ctx.reply(
+                `❌ Failed to convert sticker.\n\n${error.message}`
+            );
+
+        } finally {
+
+            cleanup(input);
+            cleanup(output);
+        }
+    }
+};
+
+/* =========================================================
+   TO VIDEO
+========================================================= */
+
+const tovideo = {
+
+    name: 'tovideo',
+
+    aliases: [
+        'tovid'
+    ],
+
+    category: 'media',
+
+    description:
+        'Convert a sticker to video.',
+
+    async execute(ctx) {
+
+        let input = null;
+        let output = null;
+
+        try {
+
+            const quoted =
+                getQuotedMessage(ctx);
+
+            if (!quoted?.stickerMessage) {
+
+                return ctx.reply(
+                    '❌ Reply to a sticker with `/tovideo`.'
+                );
+            }
+
+            const buffer =
+                await downloadMedia(
+                    ctx,
+                    quoted
+                );
+
+            if (!buffer) {
+                return ctx.reply(
+                    '❌ Could not download sticker.'
+                );
+            }
+
+            input =
+                randomName('webp');
+
+            output =
+                randomName('mp4');
+
+            fs.writeFileSync(
+                input,
+                buffer
+            );
+
+            await runFFmpeg([
+                '-y',
+
+                '-i',
+                input,
+
+                '-movflags',
+                '+faststart',
+
+                '-pix_fmt',
+                'yuv420p',
+
+                output
+            ]);
+
+            const video =
+                fs.readFileSync(output);
+
+            await ctx.sock.sendMessage(
+                getChatId(ctx),
+                {
+                    video,
+                    mimetype:
+                        'video/mp4',
+                    caption:
+                        '🎬 Converted by PRIME'
+                },
+                {
+                    quoted: ctx.message
+                }
+            );
+
+        } catch (error) {
+
+            console.error(
+                'TOVIDEO ERROR:',
+                error
+            );
+
+            await ctx.reply(
+                `❌ Failed to convert sticker.\n\n${error.message}`
+            );
+
+        } finally {
+
+            cleanup(input);
+            cleanup(output);
+        }
+    }
+};
+
+/* =========================================================
+   STICKER
+========================================================= */
+
+const sticker = {
+
+    name: 'sticker',
+
+    aliases: [
+        's',
+        'stiker'
+    ],
+
+    category: 'media',
+
+    description:
+        'Create a sticker with a custom title.',
+
+    async execute(ctx) {
+
+        try {
+
+            const argsText =
+                getArgsText(ctx);
+
+            const userId =
+                getUserId(ctx);
+
+            const chatId =
+                getChatId(ctx);
+
+            if (!userId) {
+
+                return ctx.reply(
+                    '❌ Could not determine your WhatsApp ID.'
+                );
+            }
+
+            if (!chatId) {
+
+                return ctx.reply(
+                    '❌ Could not determine the chat.'
+                );
+            }
+
+            /* ==========================================
+               DELETE PERSONAL STICKER
+            ========================================== */
+
+            const lower =
+                argsText.toLowerCase();
+
+            if (
+                lower === 'delete' ||
+                lower === 'remove'
+            ) {
+
+                const database =
+                    loadStickerDatabase();
+
+                if (!database[userId]) {
+
+                    return ctx.reply(
+                        '❌ You do not have a saved personal sticker.'
+                    );
+                }
+
+                delete database[userId];
+
+                saveStickerDatabase(
+                    database
+                );
+
+                return ctx.reply(
+                    '🗑️ Your personal sticker has been deleted.'
+                );
+            }
+
+            /* ==========================================
+               SHOW PERSONAL STICKER
+            ========================================== */
+
+            if (
+                lower === 'mine' ||
+                lower === 'mysticker'
+            ) {
+
+                const database =
+                    loadStickerDatabase();
+
+                if (!database[userId]) {
+
+                    return ctx.reply(
+                        '❌ You do not have a saved sticker.\n\n' +
+                        'Create one with:\n' +
+                        '`/sticker PRIME`'
+                    );
+                }
+
+                const stickerBuffer =
+                    Buffer.from(
+                        database[userId].sticker,
+                        'base64'
+                    );
+
+                return await ctx.sock.sendMessage(
+                    chatId,
+                    {
+                        sticker:
+                            stickerBuffer
+                    },
+                    {
+                        quoted:
+                            ctx.message
+                    }
+                );
+            }
+
+            /* ==========================================
+               UPDATE PERSONAL STICKER
+            ========================================== */
+
+            if (
+                lower === 'update' ||
+                lower.startsWith('update ')
+            ) {
+
+                const customTitle =
+                    argsText
+                        .replace(
+                            /^update\s*/i,
+                            ''
+                        )
+                        .trim() ||
+                    'PRIME';
+
+                const quoted =
+                    getQuotedMessage(ctx);
+
+                if (
+                    !quoted ||
+                    !hasMedia(quoted)
+                ) {
+
+                    return ctx.reply(
+                        '❌ Reply to an image or video.\n\n' +
+                        'Example:\n' +
+                        '`/sticker update ales is goated`'
+                    );
+                }
+
+                const media =
+                    await downloadMedia(
+                        ctx,
+                        quoted
+                    );
+
+                if (!media) {
+
+                    return ctx.reply(
+                        '❌ Could not download the media.'
+                    );
+                }
+
+                const stickerBuffer =
+                    await createSticker(
+                        media,
+                        customTitle
+                    );
+
+                const database =
+                    loadStickerDatabase();
+
+                database[userId] = {
+
+                    sticker:
+                        stickerBuffer.toString(
+                            'base64'
+                        ),
+
+                    title:
+                        customTitle,
+
+                    author:
+                        'PRIME',
+
+                    updatedAt:
+                        new Date().toISOString()
+                };
+
+                saveStickerDatabase(
+                    database
+                );
+
+                await ctx.sock.sendMessage(
+                    chatId,
+                    {
+                        sticker:
+                            stickerBuffer
+                    },
+                    {
+                        quoted:
+                            ctx.message
+                    }
+                );
+
+                return;
+            }
+
+            /* ==========================================
+               NORMAL STICKER
+            ========================================== */
+
+            const quoted =
+                getQuotedMessage(ctx);
+
+            if (
+                !quoted ||
+                !hasMedia(quoted)
+            ) {
+
+                return ctx.reply(
+                    '🖼️ Reply to an image or video with:\n\n' +
+                    '`/sticker`\n\n' +
+                    'Custom title:\n' +
+                    '`/sticker ales is goated`'
+                );
             }
 
             const media =
-                detectMedia(
-                    targetMessage
+                await downloadMedia(
+                    ctx,
+                    quoted
                 );
 
             if (!media) {
-                return reply(
-                    '✨ *PRIME ENHANCE*\n\n' +
-                    'Reply to an image or video with /enhance.\n\n' +
-                    '*Examples:*\n' +
-                    '/enhance\n' +
-                    '/enhance 2k\n' +
-                    '/enhance 4k\n' +
-                    '/enhance 60\n' +
-                    '/enhance 120\n' +
-                    '/enhance 4k 60\n' +
-                    '/enhance 4k 120'
+
+                return ctx.reply(
+                    '❌ Could not download the media.'
                 );
             }
+
+            /*
+             * EVERYTHING AFTER /STICKER
+             * BECOMES THE CUSTOM TITLE.
+             *
+             * Example:
+             *
+             * /sticker ales is goated
+             *
+             * Title:
+             * ales is goated
+             */
+
+            const customTitle =
+                argsText ||
+                'PRIME';
+
+            const stickerBuffer =
+                await createSticker(
+                    media,
+                    customTitle
+                );
+
+            /* ==========================================
+               SAVE PERSONAL STICKER
+            ========================================== */
+
+            const database =
+                loadStickerDatabase();
+
+            database[userId] = {
+
+                sticker:
+                    stickerBuffer.toString(
+                        'base64'
+                    ),
+
+                title:
+                    customTitle,
+
+                author:
+                    'PRIME',
+
+                createdAt:
+                    new Date().toISOString()
+            };
+
+            saveStickerDatabase(
+                database
+            );
+
+            /* ==========================================
+               SEND STICKER
+            ========================================== */
+
+            await ctx.sock.sendMessage(
+                chatId,
+                {
+                    sticker:
+                        stickerBuffer
+                },
+                {
+                    quoted:
+                        ctx.message
+                }
+            );
+
+        } catch (error) {
+
+            console.error(
+                'STICKER ERROR:',
+                error
+            );
+
+            return ctx.reply(
+                '❌ Failed to create sticker.\n\n' +
+                `Error: ${error.message}`
+            );
+        }
+    }
+};
+
+/* =========================================================
+   MY STICKER
+========================================================= */
+
+const mysticker = {
+
+    name: 'mysticker',
+
+    aliases: [
+        'mystick',
+        'mystk'
+    ],
+
+    category: 'media',
+
+    description:
+        'Send your saved personal sticker.',
+
+    async execute(ctx) {
+
+        try {
+
+            const userId =
+                getUserId(ctx);
+
+            const chatId =
+                getChatId(ctx);
+
+            const database =
+                loadStickerDatabase();
+
+            if (!database[userId]) {
+
+                return ctx.reply(
+                    '❌ You do not have a saved sticker.\n\n' +
+                    'Create one using:\n' +
+                    '`/sticker your title`'
+                );
+            }
+
+            const stickerBuffer =
+                Buffer.from(
+                    database[userId].sticker,
+                    'base64'
+                );
+
+            await ctx.sock.sendMessage(
+                chatId,
+                {
+                    sticker:
+                        stickerBuffer
+                },
+                {
+                    quoted:
+                        ctx.message
+                }
+            );
+
+        } catch (error) {
+
+            console.error(
+                'MYSTICKER ERROR:',
+                error
+            );
+
+            return ctx.reply(
+                `❌ Failed to send your sticker.\n\n${error.message}`
+            );
+        }
+    }
+};
+
+/* =========================================================
+   URL
+========================================================= */
+
+const tourl = {
+
+    name: 'tourl',
+
+    aliases: [
+        'url'
+    ],
+
+    category: 'media',
+
+    description:
+        'Upload media and return a URL.',
+
+    async execute(ctx) {
+
+        try {
+
+            const quoted =
+                getQuotedMessage(ctx);
 
             if (
-                media.type === 'sticker'
+                !quoted ||
+                !hasMedia(quoted)
             ) {
-                return reply(
-                    '❌ Please convert the sticker to an image/video first.'
+
+                return ctx.reply(
+                    '❌ Reply to an image, video, sticker or audio.'
                 );
             }
 
-            let inputFile = null;
-            let outputFile = null;
+            return ctx.reply(
+                '⚠️ URL upload requires an upload provider to be configured in your bot.'
+            );
 
-            try {
+        } catch (error) {
 
-                await reply(
-                    '⏳ *PRIME ENHANCE STARTED*\n\n' +
-                    `📐 Resolution: ${options.resolution.toUpperCase()}\n` +
-                    (
-                        media.type === 'video'
-                            ? `🎞️ FPS: ${
-                                options.fps ||
-                                'Original'
-                            }\n`
-                            : ''
-                    ) +
-                    '\n🪄 Processing media...\n' +
-                    'Please wait.'
+            console.error(
+                'TOURL ERROR:',
+                error
+            );
+
+            return ctx.reply(
+                `❌ ${error.message}`
+            );
+        }
+    }
+};
+
+/* =========================================================
+   SCREENSHOT
+========================================================= */
+
+const ss = {
+
+    name: 'ss',
+
+    aliases: [
+        'screenshot'
+    ],
+
+    category: 'media',
+
+    description:
+        'Take a website screenshot.',
+
+    async execute(ctx) {
+
+        const args =
+            getArgsText(ctx);
+
+        if (!args) {
+
+            return ctx.reply(
+                '🌐 Usage:\n' +
+                '`/ss https://example.com`'
+            );
+        }
+
+        return ctx.reply(
+            '⚠️ Website screenshot requires a browser/screenshot provider to be configured.'
+        );
+    }
+};
+
+/* =========================================================
+   REMOVE BG
+========================================================= */
+
+const removebg = {
+
+    name: 'removebg',
+
+    aliases: [
+        'rbg'
+    ],
+
+    category: 'media',
+
+    description:
+        'Remove an image background.',
+
+    async execute(ctx) {
+
+        const quoted =
+            getQuotedMessage(ctx);
+
+        if (
+            !quoted ||
+            !quoted.imageMessage
+        ) {
+
+            return ctx.reply(
+                '❌ Reply to an image with `/removebg`.'
+            );
+        }
+
+        return ctx.reply(
+            '⚠️ Background removal requires a configured image-processing API.'
+        );
+    }
+};
+
+/* =========================================================
+   ENHANCE
+========================================================= */
+
+const enhance = {
+
+    name: 'enhance',
+
+    aliases: [
+        'upscale',
+        'enh'
+    ],
+
+    category: 'media',
+
+    description:
+        'Enhance an image or video.',
+
+    async execute(ctx) {
+
+        let input = null;
+        let output = null;
+
+        try {
+
+            const quoted =
+                getQuotedMessage(ctx);
+
+            if (
+                !quoted ||
+                !hasMedia(quoted)
+            ) {
+
+                return ctx.reply(
+                    '❌ Reply to an image or video with `/enhance`.'
+                );
+            }
+
+            const mediaType =
+                detectMedia(quoted);
+
+            if (
+                mediaType !== 'image' &&
+                mediaType !== 'video'
+            ) {
+
+                return ctx.reply(
+                    '❌ Only images and videos can be enhanced.'
+                );
+            }
+
+            const buffer =
+                await downloadMedia(
+                    ctx,
+                    quoted
                 );
 
-                /*
-                 * sock.js provides this helper.
-                 */
-                if (
-                    typeof context.downloadMedia !==
-                    'function'
-                ) {
-                    throw new Error(
-                        'downloadMedia() is missing from sock.js.'
-                    );
-                }
+            if (!buffer) {
 
-                const downloaded =
-                    await context.downloadMedia(
-                        targetMessage
-                    );
+                return ctx.reply(
+                    '❌ Could not download the media.'
+                );
+            }
 
-                if (
-                    !downloaded ||
-                    !Buffer.isBuffer(
-                        downloaded.buffer
-                    )
-                ) {
-                    throw new Error(
-                        'WhatsApp media could not be downloaded.'
-                    );
-                }
+            if (mediaType === 'image') {
 
-                inputFile =
-                    makeTempFile(
-                        media.type === 'video'
-                            ? 'mp4'
-                            : 'jpg'
-                    );
+                input =
+                    randomName('jpg');
 
-                outputFile =
-                    makeTempFile(
-                        media.type === 'video'
-                            ? 'mp4'
-                            : 'jpg'
-                    );
+                output =
+                    randomName('jpg');
 
-                fs.writeFileSync(
-                    inputFile,
-                    downloaded.buffer
+            } else {
+
+                input =
+                    randomName('mp4');
+
+                output =
+                    randomName('mp4');
+            }
+
+            fs.writeFileSync(
+                input,
+                buffer
+            );
+
+            if (mediaType === 'image') {
+
+                await enhanceImage(
+                    input,
+                    output
                 );
 
-                /*
-                 * IMAGE
-                 */
-                if (
-                    media.type === 'image'
-                ) {
-
-                    await enhanceImage(
-                        inputFile,
-                        outputFile,
-                        options.resolution
-                    );
-
-                    if (
-                        typeof sendMedia !==
-                        'function'
-                    ) {
-                        throw new Error(
-                            'sendMedia() is missing from sock.js.'
-                        );
-                    }
-
-                    await sendMedia({
+                await ctx.sock.sendMessage(
+                    getChatId(ctx),
+                    {
                         image:
                             fs.readFileSync(
-                                outputFile
+                                output
                             ),
 
                         caption:
-                            '✨ *PRIME ENHANCE*\n\n' +
-                            `📐 Resolution: ${options.resolution.toUpperCase()}\n` +
-                            '🪄 Enhanced image'
-                    });
-
-                    return;
-                }
-
-                /*
-                 * VIDEO
-                 */
-                if (
-                    media.type === 'video'
-                ) {
-
-                    await enhanceVideo(
-                        inputFile,
-                        outputFile,
-                        options.resolution,
-                        options.fps
-                    );
-
-                    if (
-                        typeof sendMedia !==
-                        'function'
-                    ) {
-                        throw new Error(
-                            'sendMedia() is missing from sock.js.'
-                        );
+                            '✨ Enhanced by PRIME'
+                    },
+                    {
+                        quoted:
+                            ctx.message
                     }
+                );
 
-                    await sendMedia({
+            } else {
+
+                await enhanceVideo(
+                    input,
+                    output
+                );
+
+                await ctx.sock.sendMessage(
+                    getChatId(ctx),
+                    {
                         video:
                             fs.readFileSync(
-                                outputFile
+                                output
                             ),
 
                         mimetype:
                             'video/mp4',
 
                         caption:
-                            '✨ *PRIME ENHANCE*\n\n' +
-                            `📐 Resolution: ${options.resolution.toUpperCase()}\n` +
-                            `🎞️ FPS: ${
-                                options.fps ||
-                                'Original'
-                            }\n` +
-                            '🪄 Enhanced video'
-                    });
-
-                    return;
-                }
-
-            } catch (error) {
-
-                console.error(
-                    '❌ Enhance error:',
-                    error
-                );
-
-                await reply(
-                    '❌ *ENHANCE FAILED*\n\n' +
-                    `${error.message || error}\n\n` +
-                    'Check the Prime Bot console for the exact error.'
-                );
-
-            } finally {
-
-                cleanup(
-                    inputFile,
-                    outputFile
+                            '✨ Enhanced by PRIME'
+                    },
+                    {
+                        quoted:
+                            ctx.message
+                    }
                 );
             }
+
+        } catch (error) {
+
+            console.error(
+                'ENHANCE ERROR:',
+                error
+            );
+
+            return ctx.reply(
+                '❌ Enhancement failed.\n\n' +
+                error.message
+            );
+
+        } finally {
+
+            cleanup(input);
+            cleanup(output);
         }
-    },
+    }
+};
 
-    /* ========================================================
-       CAPTION
-    ======================================================== */
+/* =========================================================
+   CAPTION
+========================================================= */
 
-    {
-        name: 'caption',
-        description: 'Add caption to media',
-        category: 'MEDIA',
+const caption = {
 
-        async execute({ reply, text }) {
+    name: 'caption',
 
-            if (!text) {
-                return reply(
-                    '✏️ Usage: /caption your caption'
+    aliases: [
+        'cap'
+    ],
+
+    category: 'media',
+
+    description:
+        'Add a caption to media.',
+
+    async execute(ctx) {
+
+        const args =
+            getArgsText(ctx);
+
+        const quoted =
+            getQuotedMessage(ctx);
+
+        if (
+            !quoted ||
+            !hasMedia(quoted)
+        ) {
+
+            return ctx.reply(
+                '❌ Reply to media and provide a caption.\n\n' +
+                'Example:\n' +
+                '`/caption PRIME`'
+            );
+        }
+
+        if (!args) {
+
+            return ctx.reply(
+                '❌ Please provide a caption.'
+            );
+        }
+
+        try {
+
+            const media =
+                await downloadMedia(
+                    ctx,
+                    quoted
                 );
+
+            const type =
+                detectMedia(quoted);
+
+            if (type === 'image') {
+
+                await ctx.sock.sendMessage(
+                    getChatId(ctx),
+                    {
+                        image:
+                            media,
+
+                        caption:
+                            args
+                    },
+                    {
+                        quoted:
+                            ctx.message
+                    }
+                );
+
+                return;
             }
 
-            await reply(
-                `✏️ Caption:\n${text}`
+            if (type === 'video') {
+
+                await ctx.sock.sendMessage(
+                    getChatId(ctx),
+                    {
+                        video:
+                            media,
+
+                        caption:
+                            args
+                    },
+                    {
+                        quoted:
+                            ctx.message
+                    }
+                );
+
+                return;
+            }
+
+            return ctx.reply(
+                '❌ Caption currently supports images and videos.'
+            );
+
+        } catch (error) {
+
+            console.error(
+                'CAPTION ERROR:',
+                error
+            );
+
+            return ctx.reply(
+                `❌ Failed to add caption.\n\n${error.message}`
             );
         }
     }
-];
+};
 
+/* =========================================================
+   EXPORT ALL PLUGINS
+========================================================= */
+
+module.exports = [
+
+    sticker,
+
+    mysticker,
+
+    toimg,
+
+    tovideo,
+
+    tourl,
+
+    ss,
+
+    removebg,
+
+    enhance,
+
+    caption
+
+];
